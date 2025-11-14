@@ -1,0 +1,45 @@
+   Title:
+
+        !This code was used in Mplus for a mediation model between ADHD and cannabis use class (GMM output) with gene expression-neuroimaging covariance values as a mediator
+        Neural Correlates of ADHD as Phenotypes of Cannabis Use
+        Authors: Jacqueline Aloumanis & Amanda Elton
+
+   Data:
+
+        File is filename.dat;
+
+   Variable:
+
+        Names are study mriid studyid mjuset1 mjuset2 mjuset3 mjuset4 totalsym female
+        alcuse faminco fi_raw fi_edit fihigh2 filow2 fi_high fi_low fi_bin famhist 
+        bditotal ace4 auditt1 mjynt1 daysmj class brain ;
+
+        Usevariables are totalsym class brain daysmj female alcuse ace4 fihigh2 
+        inc_miss ;
+
+        !Growth Mixture Model latent class output
+        CATEGORICAL are class;
+
+        Missing are all(-999) ;
+
+
+   Define:
+
+        !Family income missingness indicator variable
+        inc_miss = 0 ;
+        IF (fi_raw >10) THEN inc_miss = 1 ;
+
+   Model:
+
+        !A path of mediation - ADHD symptoms to SST activation in CNR1-expressing regions (with covariates described)
+        brain ON female totalsym daysmj alcuse ace4 fihigh2 inc_miss ;
+        !B path of mediation - SST activation in CNR1-expressing regions to cannabis use class (with covariates described)
+        class ON female totalsym daysmj brain alcuse ace4 fihigh2 inc_miss ;
+
+        !C path of mediation - ADHD symptoms to cannabis use class
+        MODEL INDIRECT:
+        class IND totalsym ;
+
+   Output:
+
+        stdyx ;
