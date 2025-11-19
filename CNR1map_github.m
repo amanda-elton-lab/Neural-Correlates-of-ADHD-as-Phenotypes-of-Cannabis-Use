@@ -83,70 +83,50 @@ overlap = double(cnr1_nii.img > 0) .* double(gm_mask_nii.img > 0);
 disp(['Number of overlapping voxels: ', num2str(sum(overlap(:)))]);
 
 
-% Set up applying GM Mask to functional (SST) images
+%Create CNR1 Vector
+cnr1_vector = cnr1_map(gm_mask > 0);
+
+% Set up applying GM Mask to functional images and covariance
 input_dir = 'yourpath';
 output_dir = 'yourpath';
 
-cnr1_vector = cnr1_map(gm_mask > 0);
+valid_ids = ['yourdataids'];
 
-%Valid IDs for funtional images
-valid_ids = [1:15, 17:24, 26, 28, 29, 32:33, 35:64, 66:70, 72, 74:75, 78, 80:81, 83:90, 92:95, 97:106, 108:117,... 
-119:121, 123:131, 133:153, 155:164];
+subject_covariances = zeros(length(valid_ids), 1);
 
-% Apply GM Mask to functional (SST) image to match expression map
+%Apply GMM to each participant's SST contrast, create SST vector and covary with CNR1 Vector
 for i = 1:length(valid_ids)
     sub = valid_ids(i);
-    participant_id = sprintf('%03d', sub)
-
-    contrast_filename = fullfile('yourpath', ['sub-' participant_id '_task-sst_reml.nii']);
+    participant_id = sprintf('%03d', sub);
+    contrast_filename = fullfile('S:\Research\Elton\Studies\LIA Study\MRI data\sst\',['sub-' participant_id '_task-sst_reml.nii']);
 
     if isfile(contrast_filename)
         contrast_nii = load_nii(contrast_filename);
         contrast_data = double(contrast_nii.img);
 
-        masked_data = zeros(size(contrast_data));
+        volume = squeeze(contrast_data(:,:,:,1,14));
+        masked_volume = volume .* double(gm_mask);
 
-        for vol = 1:size(contrast_data, 5)
-            volume = squeeze(contrast_data(:,:,:,1,14));%specify which volume we want
-            masked_volume = volume .* double(gm_mask_nii.img);
-            masked_data(:,:,:,1,1) = masked_volume;
-        end
+        %Creating SST vector
+        sst_vector = masked_volume(gm_mask > 0);
 
-        contrast_nii.img = masked_data;
-        output_filename = fullfile(output_dir, ['sub-' participant_id '_contrast_masked_with_ss_go_con.nii']);
-        save_nii(contrast_nii, output_filename);
-
-    else
-        fprintf('Subject %s not found, skipping .\n', participant_id);
-    end
-end
-
-
-% Covariance of SST images with CNR1 map
-input_dir = 'yourpath';
-output_dir = 'yourpath';
-
-
-for i = 1:length(valid_ids);
-    sub = valid_ids(i);
-    participant_id = sprintf('%03d', sub);
-
-    masked_img_path = fullfile(input_dir, ['sub-' participant_id '_contrast_masked.nii']);
-
-   if isfile(masked_img_path)
-       sst_nii = load_nii(masked_img_path);
-       sst_data = double(sst_nii.img);
-         sst_data = masked_data;
-
-        sst_vector = sst_data(gm_mask > 0);
-
-        sst_vector(find(sst_vector>prctile(sst_vector,99)))=prctile(sst_vector,99);%remove extreme values
+        %Winsorize outliers
+        sst_vector(find(sst_vector>prctile(sst_vector,99)))=prctile(sst_vector,99);
         sst_vector(find(sst_vector<prctile(sst_vector,1)))=prctile(sst_vector,1);
 
+        %Calculate vectors for valid (non-NaN) voxels
         valid_voxels = ~isnan(cnr1_vector) & ~isnan(sst_vector) & std([cnr1_vector sst_vector], 0, 2) > 0;
 
-        %Covariance
-        cov_values = cov(cnr1_vector(valid_voxels), sst_vector(valid_voxels));
-        subject_covariances(end+1, 1) = cov_values(1,2);
+        %Covary vectors
+        cov_values = cov(cnr1_vector(valid_voxels), sst_vector(valid_voxels))
+        subject_covariances(i) = cov_values(1,2)
+
+    else
+        fprintf('Subject %s not found, skipping.\n', participant_id);
     end
 end
+
+
+
+
+
